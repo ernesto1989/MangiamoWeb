@@ -31,10 +31,7 @@ public class VertxConfig {
     public static JDBCClient client;
     
     /* Variables para conexión de BD*/
-    private static String host;
-    private static String db;
-    private static String user;
-    private static String password;
+    private static String url;
     private static String driverClass;
 
     /* Objeto de configuración para bd*/
@@ -49,7 +46,7 @@ public class VertxConfig {
      */
     public static void config(){
         vertx = Vertx.vertx();
-        Future<Void> steps = deployVerticles();//initDBClient().compose(v-> );   
+        Future<Void> steps = initDBClient().compose(v-> deployVerticles());   
         steps.setHandler(Promise.promise());
         steps.setHandler(hndlr->{
             if(hndlr.failed()){
@@ -67,14 +64,11 @@ public class VertxConfig {
     private static Future<Void> initDBClient(){
         Promise<Void> promise = Promise.promise();
         
-        host = "localhost:3306";
-        db = "controlgastos";
-        user = "root";
-        password = "4747819";
-        driverClass = "com.mysql.cj.jdbc.Driver";//System.getenv("driverClass");
+        url = "db/MangiamoDB.db";
+        driverClass = "org.sqlite.JDBC";//System.getenv("driverClass");
         
         config = new JsonObject()
-            .put("url", "jdbc:mysql://" + host+"/" + db + "?useSSL=false&useTimezone=true&serverTimezone=America/Mexico_City&user=" + user + "&password=" + password)
+            .put("url", "jdbc:sqlite:"+ url)
             .put("driver_class", driverClass)
             .put("max_pool_size", 30);
         
@@ -106,6 +100,7 @@ public class VertxConfig {
                 vertx.deployVerticle("com.conciencia.vertx.verticles.websocket.WebSocketMessageAPI");
                 vertx.deployVerticle("com.conciencia.vertx.verticles.websocket.WebSocketTestMsg");
                 vertx.deployVerticle("com.conciencia.vertx.verticles.websocket.WebSocketOutTestMsg");
+                vertx.deployVerticle("com.conciencia.vertx.verticles.db.ClientesDatabaseVerticle");
             }else{
                 promise.fail(hndlr.cause());
             }

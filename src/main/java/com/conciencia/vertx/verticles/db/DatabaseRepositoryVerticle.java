@@ -18,7 +18,8 @@ import java.util.List;
  * 
  * update: 27/09/2019
  */
-public abstract class DatabaseRepositoryVerticle extends AbstractVerticle implements DataRepository {
+public abstract class DatabaseRepositoryVerticle extends AbstractVerticle 
+        implements DataRepository {
 
     /* Nombre de la entidad que implementa el CRUD */
     protected String entityName;

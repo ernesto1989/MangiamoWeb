@@ -64,6 +64,10 @@ public class WebServerVerticle extends AbstractVerticle {
 //              .end();
 //        });
         
+        /**
+         * Método que recibe peticiones sin contexto de aplicación y la redirecciona a
+         * la url /Mangiamo.
+         */
         router.get("/").handler(context ->{
             context.response()
               .setStatusCode(302)
@@ -85,6 +89,9 @@ public class WebServerVerticle extends AbstractVerticle {
             });
         });
 
+        /**
+         * Método que recibe una petición directamente de una página y responde con el template.
+         */
         router.get(WEB_APP_CONTEXT + "/:page").handler(context -> {
             String page = context.request().getParam("page");
             
@@ -106,6 +113,11 @@ public class WebServerVerticle extends AbstractVerticle {
     // </editor-fold>
     
     // <editor-fold defaultstate="collapsed" desc="DEFINICION DE MÉTODOS HTTP REST GENERICOS">
+    
+    /**
+     * Define el método GetAll para obtener todas las entidades de un Tipo
+     * @param router objeto que rutea a entidades.
+     */
     private void defineGetAll(Router router) {
         router.get(REST_API_CONTEXT + ":type").handler(routingContext -> {
             String type = routingContext.request().getParam("type");
@@ -124,10 +136,15 @@ public class WebServerVerticle extends AbstractVerticle {
         });
     }
     
+    /**
+     * Método que genera búsqueda en entidades.
+     * 
+     * @param router objeto que rutea a la entidad
+     */
     private void defineSearch(Router router) {
-        router.post(REST_API_CONTEXT + "search").consumes("application/json").produces("application/json").handler(routingContext -> {
+        router.post(REST_API_CONTEXT + ":type/" + "search").consumes("application/json").produces("application/json").handler(routingContext -> {
+            String type = routingContext.request().getParam("type");
             JsonObject object = routingContext.getBodyAsJson();
-            String type = object.getString("type");
             vertx.eventBus().request("search_" + type, object, hndlr -> {
                 if (hndlr.succeeded()) {
                     JsonArray results = (JsonArray) hndlr.result().body();
@@ -143,10 +160,15 @@ public class WebServerVerticle extends AbstractVerticle {
         });
     }
 
+    /**
+     * Método que define el post de entidades.
+     * 
+     * @param router objeto que rutea a la entidad.
+     */
     private void definePost(Router router) {
-        router.post(REST_API_CONTEXT).consumes("application/json").produces("application/json").handler(routingContext -> {
+        router.post(REST_API_CONTEXT + ":type").consumes("application/json").produces("application/json").handler(routingContext -> {
             JsonObject object = routingContext.getBodyAsJson();
-            String type = object.getString("type");
+            String type = routingContext.request().getParam("type");
             vertx.eventBus().request("add_" + type, object, hndlr -> {
                 if (hndlr.succeeded()) {
                     JsonObject added = (JsonObject) hndlr.result().body();
@@ -162,10 +184,15 @@ public class WebServerVerticle extends AbstractVerticle {
         });
     }
 
+    /**
+     * Método que define el put de entidades
+     * 
+     * @param router objeto que rutea a la entidad
+     */
     private void definePut(Router router) {
-        router.put(REST_API_CONTEXT).consumes("application/json").produces("application/json").handler(routingContext -> {
+        router.put(REST_API_CONTEXT + ":type").consumes("application/json").produces("application/json").handler(routingContext -> {
+            String type = routingContext.request().getParam("type");
             JsonObject object = routingContext.getBodyAsJson();
-            String type = object.getString("type");
             vertx.eventBus().request("edit_" + type, object, hndlr -> {
                 if (hndlr.succeeded()) {
                     JsonObject edited = (JsonObject) hndlr.result().body();
@@ -181,10 +208,15 @@ public class WebServerVerticle extends AbstractVerticle {
         });
     }
 
+    /**
+     * Método que define el delete de entidades
+     * 
+     * @param router objeto que rutea a la entidad
+     */
     private void defineDelete(Router router) {
-        router.delete(REST_API_CONTEXT).consumes("application/json").produces("application/json").handler(routingContext -> {
+        router.delete(REST_API_CONTEXT + ":type").consumes("application/json").produces("application/json").handler(routingContext -> {
+            String type = routingContext.request().getParam("type");
             JsonObject object = routingContext.getBodyAsJson();
-            String type = object.getString("type");
             vertx.eventBus().request("delete_" + type, object, hndlr -> {
                 if (hndlr.succeeded()) {
                     JsonObject deleted = (JsonObject) hndlr.result().body();
@@ -219,36 +251,6 @@ public class WebServerVerticle extends AbstractVerticle {
     
     // <editor-fold defaultstate="collapsed" desc="DEFINICION DE MÉTODOS HTTP REST ESPECIFICOS">
 //    private void defineOtherMethods(Router router) {
-//
-//        //método que permite crear una nueva quincena.
-//        router.post(REST_API_CONTEXT + "nueva_quincena").produces("application/json").handler(routingContext -> {
-//            JsonObject object = routingContext.getBodyAsJson();
-//            vertx.eventBus().request("nueva_quincena", object, hndlr -> {
-//                if (hndlr.succeeded()) {
-//                    HttpServerResponse response = routingContext.response();
-//                    response.putHeader("content-type", "application/json; charset=utf-8");
-//                    response.setStatusCode(200).end(((JsonObject) hndlr.result().body()).encodePrettily());
-//                } else {
-//                    HttpServerResponse response = routingContext.response();
-//                    response.putHeader("content-type", "application/json; charset=utf-8");
-//                    response.setStatusCode(500).end(new JsonObject().put("error", hndlr.cause().toString()).encodePrettily());
-//                }
-//            });
-//        });
-//
-//        router.post(REST_API_CONTEXT + "elimina_cchica").produces("application/json").handler(routingContext -> {
-//            vertx.eventBus().request("elimina_cchica", null, hndlr -> {
-//                if (hndlr.succeeded()) {
-//                    HttpServerResponse response = routingContext.response();
-//                    response.putHeader("content-type", "application/json; charset=utf-8");
-//                    response.setStatusCode(200).end(((JsonObject) hndlr.result().body()).encodePrettily());
-//                } else {
-//                    HttpServerResponse response = routingContext.response();
-//                    response.putHeader("content-type", "application/json; charset=utf-8");
-//                    response.setStatusCode(500).end(new JsonObject().put("error", hndlr.cause().toString()).encodePrettily());
-//                }
-//            });
-//        });
 //    }
 
     // </editor-fold>
