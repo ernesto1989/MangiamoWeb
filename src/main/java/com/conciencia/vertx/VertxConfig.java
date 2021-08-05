@@ -1,24 +1,23 @@
 package com.conciencia.vertx;
 
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.jdbc.JDBCClient;
 
 /**
- * Clase que crea la instancia de vertx y configura todo lo necesario.
+ * Clase que crea la instancia de vertx. Crea una instancia de los siguiente servicios:
  * 
- * 1. Se crea la instancia de Vertx
- * 2. Se registran los verticles de servicio de la aplicación.
+ * 1. MenuRepository. Servicio que lee el menú completo de la base de datos y lo
+ *    mantiene en memoria. El menú no podrá ser actualizado durante el periodo 
+ *    de operación del restaurante.
  * 
- * Los verticles son clases que funcionan a manera de microservicios. Vertx, mediante
- * un bus de mensajes, solicita a un verticle la ejecución de una funcionalidad
- * particular. 
+ * 2. CustomersDatabaseRepository. Servicio que funciona como repositorio de datos
+ *    de clientes. Permite registrar nuevos clientes y buscarlos por #telefono.
  * 
- * Un ejemplo sería un servidor web. Como tal, se crea un vertcile que escucha en
- * un puerto web. Cuando recibe una petición, mediante un mensaje, solicita datos
- * a otro verticle que se encuentra tambien en el objeto vertx actual.
  * 
  * @author Ernesto Cantu
  */
@@ -27,85 +26,58 @@ public class VertxConfig {
     /* Instancia de vertx que controla la aplicación */
     public static Vertx vertx;
     
-    /* Objeto de conexión con cliente*/ 
-    public static JDBCClient client;
-    
-    /* Variables para conexión de BD*/
-    private static String url;
-    private static String driverClass;
-
-    /* Objeto de configuración para bd*/
-    private static JsonObject config;
-    
     /**
      * Configuración de Vertx.
      * 
      * 1.- Se crea la instancia
      * 2.- Se despliegan los Verticles
-     * 3.- Se inicializa el objeto de Base de Datos
      */
     public static void config(){
         vertx = Vertx.vertx();
-        Future<Void> steps = initDBClient().compose(v-> deployVerticles());   
-        steps.setHandler(Promise.promise());
+        Future<Void> steps = deployMenu().compose(v-> deployClientesRepository());   
         steps.setHandler(hndlr->{
             if(hndlr.failed()){
                 System.out.println(hndlr.cause());
             }else{
                 System.out.println("Mangiamo has started.");
+                vertx.eventBus().request("get_menu", null, menuHndlr->{
+                    System.out.println((JsonArray) menuHndlr.result().body());
+                });
+                
+                vertx.eventBus().request("get_customer","8112124616",custHndlr->{
+                    System.out.println((JsonObject) custHndlr.result().body());
+                });
             }
             
         });
     }
     
     /**
-     * Método de apoyo para configurar cliente de datos.
+     * Método que arranca el Repositorio del menú.
      */
-    private static Future<Void> initDBClient(){
+    private static Future<Void> deployMenu() {
         Promise<Void> promise = Promise.promise();
         
-        url = "db/MangiamoDB.db";
-        driverClass = "org.sqlite.JDBC";//System.getenv("driverClass");
-        
-        config = new JsonObject()
-            .put("url", "jdbc:sqlite:"+ url)
-            .put("driver_class", driverClass)
-            .put("max_pool_size", 30);
-        
-        client = JDBCClient.createNonShared(vertx, config);
-        
-        client.getConnection(connectionHndlr->{
-            if(connectionHndlr.failed()){
-                promise.fail(connectionHndlr.cause().toString());
-            }else{
-                connectionHndlr.result().close();
+        vertx.deployVerticle("com.conciencia.repositories.MenuRepository", hndlr->{
+            if(hndlr.succeeded())
                 promise.complete();
-            }
+            else
+                promise.fail(hndlr.cause());
         });
-        
         return promise.future();
     }
     
-     /**
-     * Método que despliega todos los verticles necesitados por la aplicación.
-     * 
-
+    /**
+     * Método que arranca el repositorio de clientes
      */
-    private static Future<Void> deployVerticles() {
+    private static Future<Void> deployClientesRepository() {
         Promise<Void> promise = Promise.promise();
-        
-        vertx.deployVerticle("com.conciencia.vertx.verticles.web.WebServerVerticle",hndlr->{
-            if(hndlr.succeeded()){
+        vertx.deployVerticle("com.conciencia.repositories.CustomersDatabaseVerticle",hndlr->{
+            if(hndlr.succeeded())
                 promise.complete();
-                vertx.deployVerticle("com.conciencia.vertx.verticles.websocket.WebSocketMessageAPI");
-                vertx.deployVerticle("com.conciencia.vertx.verticles.websocket.WebSocketTestMsg");
-                vertx.deployVerticle("com.conciencia.vertx.verticles.websocket.WebSocketOutTestMsg");
-                vertx.deployVerticle("com.conciencia.vertx.verticles.db.ClientesDatabaseVerticle");
-            }else{
+            else
                 promise.fail(hndlr.cause());
-            }
         });
-        
         return promise.future();
     }
 }
